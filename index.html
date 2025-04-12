@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Keshav's Chatrooms</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      #username-form { display: none; padding: 1rem; position: fixed; top: 0; background: white; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); z-index: 1000;}
+      #chat-container { display: block; flex-grow: 1; }
+
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+      #toggle-form-button { position: fixed; top: 10px; right: 10px; z-index: 1100;}
+    
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+      .server-message { color: blue; font-style: italic; }
+
+    </style>
+  </head>
+  <body>
+
+    <div id="username-form">
+        <label for="username">Enter Username:</label>
+        <input type="text" id="username" autocomplete="off" />
+        <label for="room">Enter Room:</label>
+        <input type="text" id="room" autocomplete="off" />
+        <button id="username-button">Join Chat</button>
+    </div>
+
+    <div id="chat-container">
+        <button id="toggle-form-button">Show/Hide Form</button>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" /><button>Send</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const socket = io();
+        let username;
+        let room = "Default"
+
+        const usernameForm = document.getElementById('username-form');
+        const usernameInput = document.getElementById('username');
+        const roomInput = document.getElementById('room');
+        const usernameButton = document.getElementById('username-button');
+        const chatContainer = document.getElementById('chat-container');
+        const toggleFormButton = document.getElementById('toggle-form-button');
+
+        usernameButton.addEventListener('click', () => {
+            const newUsername = usernameInput.value;
+            const newRoom = roomInput.value;
+
+            if (newUsername) {
+                socket.emit('check username', newUsername)
+                socket.off('username available').once('username available', () => {
+                    username = newUsername
+                    usernameObject = {
+                                    username: username,
+                                    socketId: socket.id
+                                };
+                    socket.emit('set username', usernameObject);
+                })
+                socket.off('username taken').once('username taken', function(data) {
+                    displayServerMessage(data.message);
+                });
+            }
+
+            if (newRoom){
+                room = newRoom;
+            }
+            
+            socket.emit('join room', { username: username, room: room });
+            usernameForm.style.display = 'none';
+            chatContainer.style.display = 'block';
+
+
+        });
+
+        toggleFormButton.addEventListener('click', () => {
+            if (usernameForm.style.display === 'none' || usernameForm.style.display === '') {
+                usernameForm.style.display = 'block';
+            } else {
+                usernameForm.style.display = 'none';
+            }
+        });
+
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (input.value) {
+                let messageObject = {
+                                    username: username,
+                                    message: input.value,
+                                    room: room,
+                                    senderSocketId: socket.id
+                                };
+                socket.emit('chat message', messageObject);
+                input.value = '';
+            }
+        });
+
+        socket.on('connect', () => {
+            socket.emit('get username'); // Request default assigned username from the server
+        });
+        socket.on('set username client', (data)=>{
+            username = data.username;
+        });
+
+        socket.on('chat message', function(data) {
+            displayMessage(data)
+        });
+
+        socket.on('server message', function(data) {
+            displayServerMessage(data.message);
+        });
+
+        function displayMessage(data) {
+            var item = document.createElement('li');
+            let messageText = `[${data.room}] ${data.username}`;
+
+            if (data.senderSocketId === socket.id) {
+                messageText += " (you): ";
+            } else {
+                messageText += ": ";
+            }
+            messageText += data.message;
+
+            item.textContent = messageText;
+            messages.appendChild(item);
+
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        function displayServerMessage(message) {
+            var item = document.createElement('li');
+            item.textContent = message;
+            item.classList.add('server-message');
+            messages.appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+    </script>
+  </body>
+</html>
