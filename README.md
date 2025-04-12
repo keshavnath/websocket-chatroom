@@ -2,6 +2,8 @@
 
 A real-time multi-room chat application using websockets built with Node.js, Express, and Socket.IO.
 
+![Chatroom UI Screenshot](./images/ui-sample-image.png)
+
 # DISCLAIMER
 
 This was part of a university assignment. If you copy this for your assignment, you are likely to get flagged for plagiarism.
